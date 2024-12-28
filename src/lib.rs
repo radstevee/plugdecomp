@@ -1,5 +1,10 @@
 use std::{
-    error::Error, fmt::Display, fs::{self, File}, io::{self, ErrorKind, Write}, path::{Path, PathBuf}, process::{Command, Stdio}
+    error::Error,
+    fmt::Display,
+    fs::{self, File},
+    io::{self, ErrorKind, Write},
+    path::{Path, PathBuf},
+    process::{Command, Stdio},
 };
 
 use dirs::data_dir;
@@ -11,8 +16,10 @@ const VF_DOWNLOAD_URL: &str =
     "https://github.com/Vineflower/vineflower/releases/download/1.10.1/vineflower-1.10.1.jar";
 const VF_FLAGS: [&str; 2] = ["--folder", "--kt-decompile-kotlin=false"];
 
-pub mod version;
+const ALLOWED_DECOMP_SRC_EXTENSIONS: [&str; 4] = ["sql", "java", "html", "proto"];
+
 mod util;
+pub mod version;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Mapping {
@@ -25,7 +32,7 @@ impl From<String> for Mapping {
         match &*value {
             "Mojang" => Self::Mojang,
             "Spigot/Obfuscated" => Self::Spigot,
-            _ => unreachable!()
+            _ => unreachable!(),
         }
     }
 }
@@ -34,7 +41,7 @@ impl Display for Mapping {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let name = match self {
             Self::Mojang => "Mojang",
-            Self::Spigot => "Spigot/Obfuscated"
+            Self::Spigot => "Spigot/Obfuscated",
         };
         write!(f, "{name}")
     }
@@ -97,15 +104,14 @@ pub async fn download_vf() -> io::Result<PathBuf> {
     Ok(jarfile)
 }
 
-pub async fn run_vf<P: AsRef<Path>>(
-    jarfile: P,
-    output_dir: P,
-    vf_jarfile: P,
-) -> io::Result<()> {
+pub async fn run_vf<P: AsRef<Path>>(jarfile: P, output_dir: P, vf_jarfile: P) -> io::Result<()> {
     let mut command = Command::new("java");
     command.args([
         "-jar",
-        vf_jarfile.as_ref().to_str().expect("invalid VF jarfile path"),
+        vf_jarfile
+            .as_ref()
+            .to_str()
+            .expect("invalid VF jarfile path"),
     ]);
     command.args(VF_FLAGS);
     command.arg(jarfile.as_ref().to_str().expect("invalid jarfile path"));
@@ -127,26 +133,43 @@ pub async fn run_vf<P: AsRef<Path>>(
 }
 
 pub fn filter_resources(java_sourceset: PathBuf, resources_sourceset: PathBuf) -> io::Result<()> {
-    for entry in fs::read_dir(java_sourceset)? {
-        let entry = entry?;
-        let path = entry.path();
+    fn process_directory(
+        current_dir: &PathBuf,
+        java_root: &PathBuf,
+        resources_root: &PathBuf,
+    ) -> io::Result<()> {
+        for entry in fs::read_dir(current_dir)? {
+            let entry = entry?;
+            let mut path = entry.path();
 
-        if path.is_dir() {
-            continue;
-        }
+            if path.is_dir() {
+                process_directory(&path, java_root, resources_root)?;
+            } else if let Some(extension) = path.extension() {
+                let mut extension = extension.to_str().unwrap();
 
-        if let Some(extension) = path.extension() {
-            if extension == "java" {
-                continue;
+                if extension == "java~" {
+                    let old_path = path.clone();
+                    path.set_extension("java");
+                    extension = "java";
+                    fs::rename(old_path, &path)?;
+                }
+
+                if !ALLOWED_DECOMP_SRC_EXTENSIONS.contains(&extension) {
+                    let relative_path = path.strip_prefix(java_root).unwrap();
+                    let destination = resources_root.join(relative_path);
+
+                    if let Some(parent) = destination.parent() {
+                        fs::create_dir_all(parent)?;
+                    }
+
+                    fs::rename(&path, destination)?;
+                }
             }
-
-            let destination = resources_sourceset.join(path.file_name().unwrap());
-
-            fs::rename(&path, destination)?;
         }
+        Ok(())
     }
 
-    Ok(())
+    process_directory(&java_sourceset, &java_sourceset, &resources_sourceset)
 }
 
 pub fn create_buildscript(data: PluginData) -> String {
