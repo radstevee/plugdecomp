@@ -1,0 +1,18 @@
+[package]
+name = "plugdecomp"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "plugdecomp"
+path = "src/lib.rs"
+
+[dependencies]
+clap = { version = "4.5.23", features = ["derive"] }
+dirs = "5.0.1"
+promkit = "0.6.0"
+reqwest = { version = "0.12.11", features = ["stream"] }
+futures-util = "0.3.31"
+tokio = { version = "1.42.0", features = ["full"] }
+scraper = "0.22.0"
+regex = "1.11.1"
