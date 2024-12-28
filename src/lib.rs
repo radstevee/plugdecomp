@@ -250,6 +250,24 @@ pub fn create_buildsettings(data: PluginData) -> String {
     buildsettings
 }
 
+pub fn setup_gradlew(dir: PathBuf) -> io::Result<()> {
+    let wrapper_sh = include_bytes!("../gradle/gradlew");
+    let wrapper_bat = include_bytes!("../gradle/gradlew.bat");
+    let wrapper_jar = include_bytes!("../gradle/wrapper.jar");
+    let wrapper_props = include_bytes!("../gradle/wrapper.properties");
+
+    fs::write(dir.join("gradlew"), wrapper_sh)?;
+    fs::write(dir.join("gradlew.bat"), wrapper_bat)?;
+
+    let wrapper_dir = dir.join("gradle/wrapper");
+    fs::create_dir_all(&wrapper_dir)?;
+
+    fs::write(wrapper_dir.join("gradle-wrapper.jar"), wrapper_jar)?;
+    fs::write(wrapper_dir.join("gradle-wrapper.properties"), wrapper_props)?;
+
+    Ok(())
+}
+
 pub async fn run(data: PluginData) -> Result<(), Box<dyn Error>> {
     let vf_jarfile = download_vf().await?;
     let java_sourceset = data.output_dir.join("src/main/java");
@@ -270,6 +288,9 @@ pub async fn run(data: PluginData) -> Result<(), Box<dyn Error>> {
 
     fs::write(data.output_dir.join("build.gradle.kts"), buildscript)?;
     fs::write(data.output_dir.join("settings.gradle.kts"), buildsettings)?;
+
+    println!("Setting up Gradle Wrapper...");
+    setup_gradlew(data.output_dir.clone())?;
 
     Ok(())
 }
