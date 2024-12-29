@@ -3,12 +3,11 @@ name = "plugdecomp"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
-license-file = "LICENSE"
 homepage = "https://github.com/radstevee/plugdecomp.git"
 repository = "https://github.com/radstevee/plugdecomp.git"
 description = "Tool for setting up Gradle workspaces for decompiled Minecraft plugins."
-keywords = ["minecraft", "plugin", "gradle", "decompiler", "decompiled", "decomp"]
-categories = ["minecraft", "plugin", "gradle"]
+keywords = ["minecraft", "plugin", "gradle", "decompiler", "decompiled"]
+categories = []
 
 [lib]
 name = "plugdecomp"
